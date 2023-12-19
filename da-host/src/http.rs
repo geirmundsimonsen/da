@@ -1,0 +1,105 @@
+use std::{thread::spawn, net::{TcpListener, TcpStream}, io::{BufReader, BufRead, Read, Write}};
+use libloading::{Library, Symbol};
+
+use crate::param::PARAMS;
+
+pub fn create_html(shared_lib: &str) -> String {
+  let lib = unsafe { Library::new(shared_lib).unwrap() };
+  // on this form:
+  // let initial_host_params = [param1, param2, param3, ...]
+  let initial_host_params_array = PARAMS.lock().unwrap().iter().map(|p| p.to_string()).collect::<Vec<String>>().join(",");
+  
+  let initial_host_params = format!("let initial_host_params = [{initial_host_params_array}]");
+
+  let host_js = r#"
+function send(param, value) {
+  fetch(`http://localhost:7878/param/${param}`, {
+    method: 'POST',
+    body: value
+  });
+}
+"#;
+
+  let html = unsafe { lib.get::<Symbol<unsafe extern fn() -> String>>(b"html").unwrap()() };
+  let js = unsafe { lib.get::<Symbol<unsafe extern fn() -> String>>(b"js").unwrap()() };
+  let css = unsafe { lib.get::<Symbol<unsafe extern fn() -> String>>(b"css").unwrap()() };
+
+  format!(r#"
+  <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <style>
+      {css}
+    </style>
+    <title>Rust Jack Audio Control App</title>
+  </head>
+  <body>
+    {html}
+    <script>
+      {initial_host_params}
+      {host_js}
+      {js}
+    </script>
+  </body>
+</html>
+"#)
+}
+
+pub fn start_server(shared_lib: &str) {
+  let shared_lib = shared_lib.to_string();
+  spawn(move || {
+    let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
+
+    for stream in listener.incoming() {
+      let stream = stream.unwrap();
+
+      handle_connection(stream, &shared_lib);
+    }
+  });
+}
+
+fn get_url(request_line: &str) -> &str {
+  let byte_index_start = request_line.find("/").unwrap();
+  let byte_index_end = request_line.find(" HTTP").unwrap();
+  &request_line[byte_index_start..byte_index_end]
+}
+
+fn handle_connection(mut stream: TcpStream, shared_lib: &str) {
+  let mut buf_reader = BufReader::new(&mut stream);
+  let mut request_line = String::new();
+  let mut content_length = 0;
+
+  // Read the request headers
+  loop {
+    let mut line = String::new();
+    buf_reader.read_line(&mut line).unwrap();
+    if line.starts_with("Content-Length:") {
+      content_length = line.split_whitespace().last().unwrap().parse().unwrap();
+    }
+    request_line.push_str(&line);
+    if line == "\r\n" { break; }
+  }
+
+  let url = get_url(&request_line);
+
+  // Read the body if Content-Length is present
+  let mut body = String::new();
+  if content_length > 0 {
+    buf_reader.by_ref().take(content_length as u64).read_to_string(&mut body).unwrap();
+  }
+
+  if request_line.starts_with("POST /param/") {
+    let param = url.split("/").nth(2).unwrap().parse::<usize>().unwrap();
+    *PARAMS.lock().unwrap().get_mut(param).unwrap() = body.parse().unwrap();
+    let status_line = "HTTP/1.1 200 OK";
+    let response = format!("{status_line}\r\nAccess-Control-Allow-Origin: *\r\n\r\n");
+    stream.write_all(response.as_bytes()).unwrap();
+  } else if request_line.starts_with("GET /") {
+    let status_line = "HTTP/1.1 200 OK";
+    let html = create_html(&shared_lib);
+    let length = html.len();
+    let response = format!("{status_line}\r\nContent-Length: {length}\r\nAccess-Control-Allow-Origin: *\r\n\r\n{html}");
+    stream.write_all(response.as_bytes()).unwrap();
+  }
+}
