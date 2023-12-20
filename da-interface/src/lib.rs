@@ -28,26 +28,53 @@ impl Config {
             connections: vec![],
         }
     }
+}
 
-    pub fn connect_to(&mut self, out_channel: u32, to: String) {
-        let from = format!("{}:out{}", self.name, out_channel);
-        self.connections.push((from, to));
-    }
+static mut CONFIG: Option<Config> = None;
 
-    pub fn connect_from(&mut self, in_channel: u32, from: String) {
-        let to = format!("{}:in{}", self.name, in_channel);
-        self.connections.push((from, to));
+pub fn make_config(
+    name: &str,
+    upsampling_factor: u32,
+    num_in_channels: u32,
+    num_out_channels: u32,
+    num_midi_in_ports: u32,
+    num_midi_out_ports: u32,
+) {
+    let cfg = Config::new(
+        name,
+        upsampling_factor,
+        num_in_channels,
+        num_out_channels,
+        num_midi_in_ports,
+        num_midi_out_ports,
+    );
+    unsafe {
+        CONFIG = Some(cfg);
     }
+}
 
-    pub fn connect_midi_to(&mut self, out_port: u32, to: String) {
-        let from = format!("{}:midi_out{}", self.name, out_port);
-        self.connections.push((from, to));
-    }
+pub fn config() -> &'static Config {
+    unsafe { CONFIG.as_ref().unwrap() }
+}
 
-    pub fn connect_midi_from(&mut self, in_port: u32, from: String) {
-        let to = format!("{}:midi_in{}", self.name, in_port);
-        self.connections.push((from, to));
-    }
+pub fn connect(from: String, to: String) {
+    unsafe { CONFIG.as_mut().unwrap().connections.push((from, to)); }
+}
+
+pub fn self_in(channel: u32) -> String {
+    format!("{}:in{}", unsafe { CONFIG.as_ref().unwrap().name.to_string() }, channel)
+}
+
+pub fn self_out(channel: u32) -> String {
+    format!("{}:out{}", unsafe { CONFIG.as_ref().unwrap().name.to_string() }, channel)
+}
+
+pub fn self_midi_in(port: u32) -> String {
+    format!( "{}:midi_in{}", unsafe { CONFIG.as_ref().unwrap().name.to_string() }, port)
+}
+
+pub fn self_midi_out(port: u32) -> String {
+    format!( "{}:midi_out{}", unsafe { CONFIG.as_ref().unwrap().name.to_string() }, port)
 }
 
 pub fn system_capture(channel: u32) -> String {
