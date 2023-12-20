@@ -1,5 +1,3 @@
-mod csound_io;
-
 use once_cell::sync::Lazy;
 use da_interface::{Config, Midi, NoteOn, NoteOff, CC, PB};
 
@@ -21,7 +19,7 @@ static CONFIG: Lazy<Config> = Lazy::new(|| {
 
 #[no_mangle]
 pub fn init() -> Config {
-    csound_io::init("test.csd", 64, &CONFIG);
+    da_csound::init("test.csd", 64, &CONFIG);
     CONFIG.clone()
 }
 
@@ -119,11 +117,11 @@ pub fn next(samples: &mut [f64; 32], time_in_samples: u64, midi_in: &Vec<Midi>, 
     midi_in.iter().for_each(|m| {
         match m {
             Midi::On(on) => {
-                csound_io::send_instr_event(&vec![1.0, 0.0, 0.5, on.note as f64]);
+                da_csound::send_instr_event(&vec![1.0, 0.0, 0.5, on.note as f64]);
             },
             _ => (),
         }
     });
 
-    csound_io::process(time_in_samples, params, samples);
+    da_csound::process(time_in_samples, params, samples);
 }

@@ -31,6 +31,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "da-csound"
+version = "0.1.0"
+dependencies = [
+ "csound",
+ "da-interface",
+]
+
+[[package]]
 name = "da-interface"
 version = "0.1.0"
 
@@ -38,7 +46,7 @@ version = "0.1.0"
 name = "kick"
 version = "0.1.0"
 dependencies = [
- "csound",
+ "da-csound",
  "da-interface",
  "once_cell",
 ]
