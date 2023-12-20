@@ -85,6 +85,22 @@ pub fn system_playback(channel: u32) -> String {
     format!("system:playback_{}", channel)
 }
 
+pub fn reaper_in(channel: u32) -> String {
+    format!("REAPER:in{}", channel)
+}
+
+pub fn reaper_out(channel: u32) -> String {
+    format!("REAPER:out{}", channel)
+}
+
+pub fn reaper_midi_in(port: u32) -> String {
+    format!("REAPER:MIDI Input {}", port)
+}
+
+pub fn reaper_midi_out(port: u32) -> String {
+    format!("REAPER:MIDI Output {}", port)
+}
+
 pub fn keyboard_in() -> String {
     format!("a2j:A-Series Keyboard [28] (capture): A-Series Keyboard Keyboard")
 }

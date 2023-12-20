@@ -3,12 +3,5 @@
 version = 3
 
 [[package]]
-name = "da-csound"
-version = "0.1.0"
-dependencies = [
- "da-interface",
-]
-
-[[package]]
-name = "da-interface"
+name = "da-webui"
 version = "0.1.0"
