@@ -11,4 +11,5 @@ crate-type = ["dylib"]
 [dependencies]
 da-interface = { path = "../da-interface" }
 da-csound = { path = "../da-csound" }
+da-webui = { path = "../da-webui" }
 once_cell = "1.19.0"

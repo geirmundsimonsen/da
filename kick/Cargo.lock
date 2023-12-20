@@ -43,11 +43,16 @@ name = "da-interface"
 version = "0.1.0"
 
 [[package]]
+name = "da-webui"
+version = "0.1.0"
+
+[[package]]
 name = "kick"
 version = "0.1.0"
 dependencies = [
  "da-csound",
  "da-interface",
+ "da-webui",
  "once_cell",
 ]
 
