@@ -32,11 +32,8 @@ use da_interface::{Config, Midi, system_playback, keyboard_in};
     }
 
     midi_in.iter().for_each(|m| {
-        match m {
-            Midi::On(on) => {
-                da_csound::send_instr_event(&vec![1.0, 0.0, 0.5, on.note as f64]);
-            },
-            _ => (),
+        if let Midi::On(on) = m {
+            da_csound::send_instr_event(&vec![1.0, 0.0, 0.5, on.note as f64]);
         }
     });
 
