@@ -1,5 +1,6 @@
 <CsoundSynthesizer>
 <CsOptions>
+-+rtaudio=null -odac
 </CsOptions>
 <CsInstruments>
 0dbfs = 6
