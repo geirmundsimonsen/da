@@ -1,5 +1,5 @@
 use once_cell::sync::Lazy;
-use da_interface::{Config, Midi, NoteOn, NoteOff, CC, PB};
+use da_interface::{Config, Midi};
 
 static CONFIG: Lazy<Config> = Lazy::new(|| {
     Config {
@@ -106,7 +106,7 @@ pub fn css() -> String {
 }
 
 #[no_mangle]
-pub fn next(samples: &mut [f64; 32], time_in_samples: u64, midi_in: &Vec<Midi>, midi_out: &mut Vec<Midi>, params: &mut Vec<f64>) {
+pub fn next(samples: &mut [f64; 32], time_in_samples: u64, midi_in: &Vec<Midi>, _midi_out: &mut Vec<Midi>, params: &mut Vec<f64>) {
     if time_in_samples == 0 {
         params[0] = 50.0;
         params[1] = 2.0;
