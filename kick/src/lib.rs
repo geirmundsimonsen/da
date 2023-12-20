@@ -6,8 +6,8 @@ use da_interface::{Config, Midi, system_playback, keyboard_in};
     cfg.connect_midi_from(1, keyboard_in());
     
     da_csound::init("test.csd", 64, &cfg);
-
-    cfg.clone()
+    
+    cfg
 }
 
 #[no_mangle] pub fn html() -> String { r#""#.to_string() }
