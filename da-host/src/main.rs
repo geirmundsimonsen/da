@@ -13,7 +13,7 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     let shared_lib = &args[1];
 
-    param::PARAMS.lock().unwrap().resize(64, 0.0);
+    param::PARAMS.lock().unwrap().resize(256, 0.0);
 
     http::start_server(shared_lib);
     

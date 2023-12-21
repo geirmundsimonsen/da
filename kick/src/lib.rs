@@ -2,7 +2,7 @@ use da_interface::{Config, Midi, system_playback, keyboard_in, make_config, conf
 
 #[no_mangle] pub fn init() -> Config {
     make_config("Kick", 16, 0, 1, 1, 0);
-    da_csound::init("kick.csd", 64, config());
+    da_csound::init("kick.csd", 64, 100, config());
 
     connect(keyboard_in(), self_midi_in(1));
     connect(self_out(1), system_playback(9));
