@@ -6,14 +6,19 @@ function createSlider(name, param, min, max, precision=3, type="linear") {
         initialMapped = (initial - min) / (max - min);
     } else if (type == "exp") {
         initialMapped = Math.sqrt((initial - min) / (max - min));
+    } else if (type == "step") {
+        initialMapped = Math.floor(initial);
     }
 
     const slider = document.createElement("div");
-    slider.className = "slider";
+
+    const sliderParams = type == 'step' 
+        ? `min="${min}" max="${max}" step="1"` 
+        : 'min="0" max="1" step="any"';
     
     slider.innerHTML = `
         <p>${name}</p>
-        <input type="range" min="0" max="1" step="any" orient="vertical" />
+        <input type="range" ${sliderParams} orient="vertical" />
         <p></p>
     `;
     slider.style.display = "inline-flex";
@@ -38,6 +43,8 @@ function createSlider(name, param, min, max, precision=3, type="linear") {
             mapped = input.value * (max - min) + min;
         } else if (type == "exp") {
             mapped = input.value ** 2 * (max - min) + min;
+        } else if (type == "step") {
+            mapped = Math.floor(input.value);
         }
         send(param, mapped);
         output.innerText = parseFloat(mapped).toFixed(precision);
@@ -48,4 +55,43 @@ function createSlider(name, param, min, max, precision=3, type="linear") {
     slider2param();
 
     document.body.appendChild(slider);
+}
+
+function createList(name, param, options) {
+    let initial = initial_host_params[param];
+
+    const list = document.createElement("div");
+
+    list.innerHTML = `
+        <p>${name}</p>
+        <select></select>
+    `;
+
+    list.style.display = "inline-flex";
+    list.style.flexDirection = "column";
+    list.style.width = "100px";
+    list.style.alignItems = "center";
+
+    const label = list.querySelector("p");
+    label.style.margin = "0";
+    label.style.padding = "0";
+
+    const select = list.querySelector("select");
+    select.style.width = "100%";
+
+    for (let i = 0; i < options.length; i++) {
+        const option = document.createElement("option");
+        option.innerText = options[i];
+        option.value = i;
+        select.appendChild(option);
+    }
+
+    const list2param = () => {
+        send(param, select.value);
+    }
+
+    select.onchange = list2param;
+    select.value = initial;
+
+    document.body.appendChild(list);
 }
