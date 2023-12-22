@@ -18,14 +18,7 @@ use da_interface::{Config, Midi, system_playback, keyboard_in, make_config, conf
 #[no_mangle] pub fn html() -> String { r#""#.to_string() }
 #[no_mangle] pub fn css() -> String { r#""#.to_string() }
 #[no_mangle] pub fn js() -> String {
-    da_webui::create_js(r#"
-
-    createSlider("Freq", 0, 30, 120, 1);
-    createSlider("Gain", 1, 1, 100, 1, "exp");
-    createSlider("P.Dec.", 2, 0, 1, 3);
-    createSlider("P.Str.", 3, 0, 10000, 0, "exp");
-    
-    "#)
+    da_webui::create_js(r#"createDefaultUI();"#)
 }
 
 #[no_mangle] pub fn next(samples: &mut [f64; 32], time_in_samples: u64, midi_in: &Vec<Midi>, _midi_out: &mut Vec<Midi>, params: &mut Vec<Param>) {

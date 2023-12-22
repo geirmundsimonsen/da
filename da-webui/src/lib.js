@@ -54,7 +54,7 @@ function createSlider(name, param, min, max, decimals=3, type="linear") {
     input.value = initialMapped;
     slider2param();
 
-    document.body.appendChild(slider);
+    document.body.querySelector("#params").appendChild(slider);
 }
 
 function createList(name, param, options) {
@@ -93,10 +93,55 @@ function createList(name, param, options) {
     select.onchange = list2param;
     select.value = initial;
 
-    document.body.appendChild(list);
+    document.body.querySelector("#params").appendChild(list);
+}
+
+function createPresetUI() {
+    const presetName = document.createElement("input");
+    presetName.type = "text";
+    presetName.placeholder = "Preset name";
+    presetName.style.width = "95.8%";
+    document.body.querySelector("#presets").appendChild(presetName);
+
+    const save = document.createElement("button");
+    save.innerText = "Save";
+    save.onclick = async () => {
+        if (presetName.value.length > 0) {
+            await savePreset(presetName.value);
+            location.reload();
+        }
+    }
+    save.style.width = "100%";
+    save.style.marginBottom = "15px";
+    document.body.querySelector("#presets").appendChild(save);
+
+    for (const preset of presets) {
+        const button = document.createElement("button");
+        button.innerText = preset[0];
+        button.onclick = async () => {
+            for (let i = 1; i < preset.length; i += 2) {
+                console.log(preset[i]);
+                if (preset[i] == "" || preset[i] == undefined) {
+                    break;
+                }
+                paramIndex = initial_host_params.findIndex(param => param.name == preset[i]);
+                if (paramIndex == -1) {
+                    console.log(`Param ${preset[i]} not found`);
+                    continue;
+                }
+                await send(paramIndex, preset[i + 1]);
+            }
+            location.reload();
+        }
+        
+        button.style.width = "100%";
+        document.body.querySelector("#presets").appendChild(button);
+    }
 }
 
 function createDefaultUI() {
+    createPresetUI();
+
     for (let i = 0; i < initial_host_params.length; i++) {
         const param = initial_host_params[i];
         if (param.type == "linear") {

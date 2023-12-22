@@ -6,8 +6,7 @@ use crate::param::PARAMS;
 
 pub fn create_html(shared_lib: &str) -> String {
   let lib = unsafe { Library::new(shared_lib).unwrap() };
-  // on this form:
-  // let initial_host_params = [param1, param2, param3, ...]
+
   let initial_host_params_array = PARAMS.lock().unwrap().iter().enumerate().map(|(i, p)|
     match p.param_type {
       ParamType::Linear(min, max, decimals) => format!("{{ name: \"{}\", param: {i}, value: {}, min: {}, max: {}, decimals: {}, type: \"linear\" }}", p.name, p.value, min, max, decimals),
@@ -15,14 +14,35 @@ pub fn create_html(shared_lib: &str) -> String {
       ParamType::List(ref list) => format!("{{ name: \"{}\", param: {i}, value: {}, list: {:?}, type: \"list\" }}", p.name, p.value, list),
     }
   ).collect::<Vec<String>>().join(",");
-  
+
+  let presets = std::fs::read_to_string("presets.txt").unwrap_or("".to_string()).lines().map(|line| {
+    let parts = line.split(",").enumerate().map(|(i, part)| {
+      if i == 0 || i % 2 == 1 {
+        format!("\"{}\"", part)
+      } else {
+        format!("{}", part)
+      }
+    }).collect::<Vec<String>>().join(",");
+    let preset = format!("[{parts}]");
+    preset
+  }).collect::<Vec<String>>().join(",");
+
+  let presets_array = format!("let presets = [{presets}]");
+
   let initial_host_params = format!("let initial_host_params = [{initial_host_params_array}]");
 
   let host_js = r#"
-function send(param, value) {
-  fetch(`http://localhost:7878/param/${param}`, {
+async function send(param, value) {
+  await fetch(`http://localhost:7878/param/${param}`, {
     method: 'POST',
     body: value
+  });
+}
+
+async function savePreset(name) {
+  await fetch('http://localhost:7878/savepreset', {
+    method: 'POST',
+    body: name
   });
 }
 "#;
@@ -38,13 +58,31 @@ function send(param, value) {
     <meta charset="utf-8">
     <style>
       {css}
+      #app {{
+        display: flex;
+        flex-direction: row;
+      }}
+
+      #presets {{
+        width: 200px;
+        margin-right: 20px;
+      }}
+
+      #params {{
+        width: 100%;
+      }}
     </style>
     <title>Rust Jack Audio Control App</title>
   </head>
   <body>
+    <div id="app">
+      <div id="presets"></div>
+      <div id="params"></div>
+    </div>
     {html}
     <script>
       {initial_host_params}
+      {presets_array}
       {host_js}
       {js}
     </script>
@@ -99,6 +137,7 @@ fn handle_connection(mut stream: TcpStream, shared_lib: &str) {
   if request_line.starts_with("POST /param/") {
     let param = url.split("/").nth(2).unwrap().parse::<usize>().unwrap();
     PARAMS.lock().unwrap().get_mut(param).unwrap().value = body.parse().unwrap();
+    println!("{}: {}", param, body);
     let status_line = "HTTP/1.1 200 OK";
     let response = format!("{status_line}\r\nAccess-Control-Allow-Origin: *\r\n\r\n");
     stream.write_all(response.as_bytes()).unwrap();
@@ -107,6 +146,19 @@ fn handle_connection(mut stream: TcpStream, shared_lib: &str) {
     let html = create_html(&shared_lib);
     let length = html.len();
     let response = format!("{status_line}\r\nContent-Length: {length}\r\nAccess-Control-Allow-Origin: *\r\n\r\n{html}");
+    stream.write_all(response.as_bytes()).unwrap();
+  } else if request_line.starts_with("POST /savepreset") {
+    let preset_name = body;
+    let mut presets_file = std::fs::OpenOptions::new().create(true).append(true).open("presets.txt").unwrap();
+    let mut preset_line = format!("{},", preset_name);
+    for param in PARAMS.lock().unwrap().iter() {
+      preset_line.push_str(&format!("{},", param.name));
+      preset_line.push_str(&format!("{},", param.value));
+    }
+    preset_line.push_str("\n");
+    presets_file.write_all(preset_line.as_bytes()).unwrap();
+    let status_line = "HTTP/1.1 200 OK";
+    let response = format!("{status_line}\r\nAccess-Control-Allow-Origin: *\r\n\r\n");
     stream.write_all(response.as_bytes()).unwrap();
   }
 }
