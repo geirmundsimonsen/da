@@ -137,7 +137,6 @@ fn handle_connection(mut stream: TcpStream, shared_lib: &str) {
   if request_line.starts_with("POST /param/") {
     let param = url.split("/").nth(2).unwrap().parse::<usize>().unwrap();
     PARAMS.lock().unwrap().get_mut(param).unwrap().value = body.parse().unwrap();
-    println!("{}: {}", param, body);
     let status_line = "HTTP/1.1 200 OK";
     let response = format!("{status_line}\r\nAccess-Control-Allow-Origin: *\r\n\r\n");
     stream.write_all(response.as_bytes()).unwrap();
