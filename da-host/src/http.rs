@@ -1,4 +1,5 @@
 use std::{thread::spawn, net::{TcpListener, TcpStream}, io::{BufReader, BufRead, Read, Write}};
+use da_interface::ParamType;
 use libloading::{Library, Symbol};
 
 use crate::param::PARAMS;
@@ -7,7 +8,13 @@ pub fn create_html(shared_lib: &str) -> String {
   let lib = unsafe { Library::new(shared_lib).unwrap() };
   // on this form:
   // let initial_host_params = [param1, param2, param3, ...]
-  let initial_host_params_array = PARAMS.lock().unwrap().iter().map(|p| p.to_string()).collect::<Vec<String>>().join(",");
+  let initial_host_params_array = PARAMS.lock().unwrap().iter().enumerate().map(|(i, p)|
+    match p.param_type {
+      ParamType::Linear(min, max, decimals) => format!("{{ name: \"{}\", param: {i}, value: {}, min: {}, max: {}, decimals: {}, type: \"linear\" }}", p.name, p.value, min, max, decimals),
+      ParamType::Exponential(min, max, decimals) => format!("{{ name: \"{}\", param: {i}, value: {}, min: {}, max: {}, decimals: {}, type: \"exponential\" }}", p.name, p.value, min, max, decimals),
+      ParamType::List(ref list) => format!("{{ name: \"{}\", param: {i}, value: {}, list: {:?}, type: \"list\" }}", p.name, p.value, list),
+    }
+  ).collect::<Vec<String>>().join(",");
   
   let initial_host_params = format!("let initial_host_params = [{initial_host_params_array}]");
 
@@ -91,7 +98,7 @@ fn handle_connection(mut stream: TcpStream, shared_lib: &str) {
 
   if request_line.starts_with("POST /param/") {
     let param = url.split("/").nth(2).unwrap().parse::<usize>().unwrap();
-    *PARAMS.lock().unwrap().get_mut(param).unwrap() = body.parse().unwrap();
+    PARAMS.lock().unwrap().get_mut(param).unwrap().value = body.parse().unwrap();
     let status_line = "HTTP/1.1 200 OK";
     let response = format!("{status_line}\r\nAccess-Control-Allow-Origin: *\r\n\r\n");
     stream.write_all(response.as_bytes()).unwrap();

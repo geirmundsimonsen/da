@@ -1,9 +1,9 @@
 use std::{sync::Mutex, ffi::c_void, f32::NAN, collections::HashMap, borrow::BorrowMut};
 use jack::{Client, ClientOptions, MidiIn, AudioOut, Port, AudioIn, AsyncClient, ProcessScope, Control, ProcessHandler, RawMidi, MidiOut};
 use libloading::{Library, Symbol};
-use da_interface::{Config, Midi, NoteOn, NoteOff, CC, PB};
+use da_interface::{Config, Midi, NoteOn, NoteOff, CC, PB, Param};
 
-use crate::{constants::MAX_JACK_FRAMES, param};
+use crate::{constants::MAX_JACK_FRAMES, param::{self}};
 
 pub static CLIENT: Mutex<Option<Client>> = Mutex::new(None);
 pub static IN_PORTS: Mutex<Vec<Port<AudioIn>>> = Mutex::new(Vec::new());
@@ -110,7 +110,7 @@ impl ProcessHandler for ConcreteProcessHandler {
         let mut params = param::PARAMS.lock().unwrap();
         
         unsafe {
-            let next: libloading::Symbol<unsafe extern fn(&mut [f64; 32], u64, &Vec<Midi>, &mut Vec<Midi>, &mut Vec<f64>)> = self.lib.get(b"next").unwrap();
+            let next: libloading::Symbol<unsafe extern fn(&mut [f64; 32], u64, &Vec<Midi>, &mut Vec<Midi>, &mut Vec<Param>)> = self.lib.get(b"next").unwrap();
 
             let empty_midi_events = Vec::new();
             let mut empty_midi_events_out = Vec::new();
@@ -256,8 +256,11 @@ pub fn connect_ports(client: &Client, out_port: &str, in_port: &str) {
 
 pub fn play(shared_lib: &str) {
     let lib = unsafe { Library::new(shared_lib).unwrap() };
-    
-    let config = unsafe { lib.get::<Symbol<unsafe extern fn() -> Config>>(b"init").unwrap()() };
+
+    let config = {
+        let mut params = param::PARAMS.lock().unwrap();
+        unsafe { lib.get::<Symbol<unsafe extern fn(&mut Vec<Param>) -> Config>>(b"init").unwrap()(&mut params) }
+    };
 
     create_jack_client(&config.name);
     for _ in 0..config.num_in_channels {

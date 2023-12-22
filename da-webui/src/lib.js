@@ -1,5 +1,5 @@
-function createSlider(name, param, min, max, precision=3, type="linear") {
-    let initial = initial_host_params[param];
+function createSlider(name, param, min, max, decimals=3, type="linear") {
+    let initial = initial_host_params[param].value;
     let initialMapped;
 
     if (type == "linear") {
@@ -47,7 +47,7 @@ function createSlider(name, param, min, max, precision=3, type="linear") {
             mapped = Math.floor(input.value);
         }
         send(param, mapped);
-        output.innerText = parseFloat(mapped).toFixed(precision);
+        output.innerText = parseFloat(mapped).toFixed(decimals);
     }
 
     input.oninput = slider2param;
@@ -58,7 +58,7 @@ function createSlider(name, param, min, max, precision=3, type="linear") {
 }
 
 function createList(name, param, options) {
-    let initial = initial_host_params[param];
+    let initial = initial_host_params[param].value;
 
     const list = document.createElement("div");
 
@@ -94,4 +94,17 @@ function createList(name, param, options) {
     select.value = initial;
 
     document.body.appendChild(list);
+}
+
+function createDefaultUI() {
+    for (let i = 0; i < initial_host_params.length; i++) {
+        const param = initial_host_params[i];
+        if (param.type == "linear") {
+            createSlider(param.name, param.param, param.min, param.max, param.decimals, "linear");
+        } else if (param.type == "exponential") {
+            createSlider(param.name, param.param, param.min, param.max, param.decimals, "exp");
+        } else if (param.type == "list") {
+            createList(param.name, param.param, param.list);
+        }
+    }
 }

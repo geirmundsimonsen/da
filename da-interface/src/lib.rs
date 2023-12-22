@@ -143,3 +143,39 @@ pub enum Midi {
     CC(CC),
     PB(PB),
 }
+
+#[derive(Clone)]
+pub enum ParamType {
+    Linear(f64, f64, i32),
+    Exponential(f64, f64, i32),
+    List(Vec<String>),
+}
+
+#[derive(Clone)]
+pub struct Param {
+    pub name: String,
+    pub value: f64,
+    pub param_type: ParamType,
+}
+
+impl Param {
+    pub fn new(name: &str, value: f64, param_type: ParamType) -> Self {
+        Self {
+            name: name.to_string(),
+            value,
+            param_type,
+        }
+    }
+}
+
+pub fn exp_param(name: &str, value: f64, min: f64, max: f64, decimals: i32) -> Param {
+    Param::new(name, value, ParamType::Exponential(min, max, decimals))
+}
+
+pub fn lin_param(name: &str, value: f64, min: f64, max: f64, decimals: i32) -> Param {
+    Param::new(name, value, ParamType::Linear(min, max, decimals))
+}
+
+pub fn list_param(name: &str, value: f64, list: Vec<&str>) -> Param {
+    Param::new(name, value, ParamType::List(list.iter().map(|s| s.to_string()).collect()))
+}

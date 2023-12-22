@@ -1,4 +1,4 @@
-use da_interface::Config;
+use da_interface::{Config, Param};
 
 static mut CSOUND: Option<csound::Csound> = None;
 static mut KSMPS: u64 = 16;
@@ -29,7 +29,7 @@ pub fn init(csd: &str, ksmps: u64, param_update_hz: u32, config: &Config) {
     }
 }
 
-pub fn process(time_in_samples: u64, params: &Vec<f64>, samples: &mut [f64; 32]) {
+pub fn process(time_in_samples: u64, params: &Vec<Param>, samples: &mut [f64; 32]) {
     unsafe {
         if time_in_samples % KSMPS as u64 == 0 {
             CSOUND.as_ref().unwrap().perform_ksmps();               
@@ -37,7 +37,7 @@ pub fn process(time_in_samples: u64, params: &Vec<f64>, samples: &mut [f64; 32])
 
         if time_in_samples % PARAM_UPDATE_SAMPLES == 0 {
             for i in 0..params.len() {
-                CSOUND.as_mut().unwrap().set_control_channel(&format!("param{}", i), params[i]);
+                CSOUND.as_mut().unwrap().set_control_channel(&format!("{}", params[i].name), params[i].value);
             }
         }
     

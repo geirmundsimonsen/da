@@ -1,3 +1,5 @@
 use std::sync::Mutex;
 
-pub static PARAMS: Mutex<Vec<f64>> = Mutex::new(vec![]);
+use da_interface::Param;
+
+pub static PARAMS: Mutex<Vec<Param>> = Mutex::new(vec![]);
