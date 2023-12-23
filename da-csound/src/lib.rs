@@ -8,10 +8,10 @@ pub fn init(csd: &str, ksmps: u64, param_update_hz: u32, config: &Config) {
     let csd = std::fs::read_to_string(csd).unwrap();
     let cs_instruments_end = csd.find("<CsInstruments>").unwrap() + 15;
     let csd = format!("{}\nsr={}\nksmps={}\nnchnls={}\n{}", &csd[..cs_instruments_end], 48000 * config.upsampling_factor, ksmps, config.num_out_channels, &csd[cs_instruments_end..]);
-    
 
     unsafe {
         CSOUND = Some(csound::Csound::new());
+        CSOUND.as_ref().unwrap().create_message_buffer(1);
         match CSOUND.as_ref().unwrap().compile_csd_text(csd) {
             Ok(_) => (),
             Err(e) => {
