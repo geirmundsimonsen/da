@@ -114,6 +114,8 @@ pub fn start_server(shared_lib: &str, config: &Config) {
   spawn(move || {
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
 
+    println!("HTTP server available at http://localhost:7878/");
+
     for stream in listener.incoming() {
       let stream = stream.unwrap();
 
