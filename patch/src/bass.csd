@@ -1,7 +1,4 @@
 <CsoundSynthesizer>
-<CsOptions>
--+rtaudio=null -odac
-</CsOptions>
 <CsInstruments>
 0dbfs = 6
 
@@ -51,15 +48,8 @@ asig clfilt asig, 16000, 0, 8
 out asig
 endin
 
-instr 10
-endin
-
 </CsInstruments>
 <CsScore>
-t 0 120
-
 i2 0 3600
-
-i10 3600, 0, 44
 </CsScore>
 </CsoundSynthesizer>

@@ -39,6 +39,7 @@ impl ConcreteProcessHandler {
 }
 
 static mut TIME_IN_SAMPLES: u64 = 0;
+static mut DONE: bool = false;
 
 impl ProcessHandler for ConcreteProcessHandler {
     const SLOW_SYNC:bool = false;
@@ -110,7 +111,7 @@ impl ProcessHandler for ConcreteProcessHandler {
         let mut params = param::PARAMS.lock().unwrap();
         
         unsafe {
-            let next: libloading::Symbol<unsafe extern fn(&mut [f64; 32], u64, &Vec<Midi>, &mut Vec<Midi>, &mut Vec<Param>)> = self.lib.get(b"next").unwrap();
+            let next: libloading::Symbol<unsafe extern fn(&mut [f64; 32], u64, &Vec<Midi>, &mut Vec<Midi>, &mut Vec<Param>, &mut bool)> = self.lib.get(b"next").unwrap();
 
             let empty_midi_events = Vec::new();
             let mut empty_midi_events_out = Vec::new();
@@ -128,9 +129,9 @@ impl ProcessHandler for ConcreteProcessHandler {
                 let midi_events_ref = block_midi_events.get(&i);
                 
                 if let Some(midi_events) = midi_events_ref {
-                    next(&mut self.channel_sample_buf, TIME_IN_SAMPLES, midi_events, &mut empty_midi_events_out, &mut params);
+                    next(&mut self.channel_sample_buf, TIME_IN_SAMPLES, midi_events, &mut empty_midi_events_out, &mut params, &mut DONE);
                 } else {
-                    next(&mut self.channel_sample_buf, TIME_IN_SAMPLES, &empty_midi_events, &mut empty_midi_events_out, &mut params);
+                    next(&mut self.channel_sample_buf, TIME_IN_SAMPLES, &empty_midi_events, &mut empty_midi_events_out, &mut params, &mut DONE);
                 }
 
                 if empty_midi_events_out.len() > 0 {
@@ -193,6 +194,11 @@ impl ProcessHandler for ConcreteProcessHandler {
             }
         });
 
+        unsafe {
+            if DONE {
+                return Control::Quit;
+            }
+        }
         jack::Control::Continue
     }
 }
@@ -288,6 +294,13 @@ pub fn play(shared_lib: &str) {
         connect_ports(&ac.as_client(), &a, &b);
     }
 
-
-    std::thread::sleep(std::time::Duration::from_secs(3600*24));
+    loop {
+        unsafe {
+            if DONE {
+                ac.deactivate().unwrap();
+                break;
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_millis(200));
+    }
 }

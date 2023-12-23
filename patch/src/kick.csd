@@ -1,8 +1,7 @@
 <CsoundSynthesizer>
-<CsOptions>
--+rtaudio=null -odac
-</CsOptions>
 <CsInstruments>
+#include "util.csd"
+
 0dbfs = 6
 
 gisine ftgen 0, 0, 2^10, 10, 1
@@ -18,9 +17,4 @@ outs asig * aenv
 endin
 
 </CsInstruments>
-<CsScore>
-t 0 120
-
-i1 3600, 0
-</CsScore>
 </CsoundSynthesizer>

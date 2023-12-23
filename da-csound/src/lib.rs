@@ -12,6 +12,11 @@ pub fn init(csd: &str, ksmps: u64, param_update_hz: u32, config: &Config) {
     unsafe {
         CSOUND = Some(csound::Csound::new());
         CSOUND.as_ref().unwrap().create_message_buffer(1);
+
+        // these options prevent csound from writing a wav file
+        let _ = CSOUND.as_ref().unwrap().set_option("-odac");
+        let _ = CSOUND.as_ref().unwrap().set_option("-+rtaudio=null");
+
         match CSOUND.as_ref().unwrap().compile_csd_text(csd) {
             Ok(_) => (),
             Err(e) => {
@@ -29,10 +34,14 @@ pub fn init(csd: &str, ksmps: u64, param_update_hz: u32, config: &Config) {
     }
 }
 
-pub fn process(time_in_samples: u64, params: &Vec<Param>, samples: &mut [f64; 32]) {
+pub fn process(time_in_samples: u64, params: &Vec<Param>, samples: &mut [f64; 32], done: &mut bool) {
+    if *done {
+        return;
+    }
+
     unsafe {
         if time_in_samples % KSMPS as u64 == 0 {
-            CSOUND.as_ref().unwrap().perform_ksmps();               
+            *done = CSOUND.as_ref().unwrap().perform_ksmps();
         }
 
         if time_in_samples % PARAM_UPDATE_SAMPLES == 0 {
