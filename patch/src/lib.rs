@@ -1,9 +1,10 @@
+mod scratchpad;
 mod bass;
 mod kick;
 
 use da_interface::{Config, Midi, Param};
 
-use bass as current;
+use scratchpad::a01 as current;
 
 #[no_mangle] pub fn init(params: &mut Vec<Param>) -> Config { current::init(params) }
 #[no_mangle] pub fn html() -> String { current::html() }

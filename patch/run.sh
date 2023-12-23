@@ -8,7 +8,7 @@ else
         cargo build --release && ../da-host/target/release/da-host target/release/libpatch.so
     else
         # replace "use <some-id> as current;" with "use <arg> as current;" in src/lib.rs
-        sed -i "s/use [a-zA-Z0-9_]* as current;/use $1 as current;/g" src/lib.rs
+        sed -i "s/use [a-zA-Z0-9_:]* as current;/use $1 as current;/g" src/lib.rs
         cargo build --release && ../da-host/target/release/da-host target/release/libpatch.so
     fi
 fi
