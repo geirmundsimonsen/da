@@ -3,7 +3,6 @@
 0dbfs = 6
 
 ga0 init 0
-gisine ftgen 0, 0, 2^10, 10, 1
 
 instr 1
 gaenv transeg 1, 1, -4, 0
