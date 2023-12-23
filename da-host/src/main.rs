@@ -12,8 +12,6 @@ mod param;
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let shared_lib = &args[1];
-
-    http::start_server(shared_lib);
     
     jk::play(shared_lib);
 }

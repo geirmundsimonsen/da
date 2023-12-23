@@ -1,10 +1,10 @@
 use std::{thread::spawn, net::{TcpListener, TcpStream}, io::{BufReader, BufRead, Read, Write}};
-use da_interface::ParamType;
+use da_interface::{ParamType, Config};
 use libloading::{Library, Symbol};
 
 use crate::param::PARAMS;
 
-pub fn create_html(shared_lib: &str) -> String {
+pub fn create_html(shared_lib: &str, config: &Config) -> String {
   let lib = unsafe { Library::new(shared_lib).unwrap() };
 
   let initial_host_params_array = PARAMS.lock().unwrap().iter().enumerate().map(|(i, p)|
@@ -14,8 +14,8 @@ pub fn create_html(shared_lib: &str) -> String {
       ParamType::List(ref list) => format!("{{ name: \"{}\", param: {i}, value: {}, list: {:?}, type: \"list\" }}", p.name, p.value, list),
     }
   ).collect::<Vec<String>>().join(",");
-
-  let presets = std::fs::read_to_string("presets.txt").unwrap_or("".to_string()).lines().map(|line| {
+  
+  let presets = std::fs::read_to_string(format!("presets/{}.txt", config.name.to_lowercase())).unwrap_or("".to_string()).lines().map(|line| {
     let parts = line.split(",").enumerate().map(|(i, part)| {
       if i == 0 || i % 2 == 1 {
         format!("\"{}\"", part)
@@ -27,8 +27,9 @@ pub fn create_html(shared_lib: &str) -> String {
     preset
   }).collect::<Vec<String>>().join(",");
 
-  let presets_array = format!("let presets = [{presets}]");
+  let name = config.name.clone();
 
+  let presets_array = format!("let presets = [{presets}]");
   let initial_host_params = format!("let initial_host_params = [{initial_host_params_array}]");
 
   let host_js = r#"
@@ -58,6 +59,21 @@ async function savePreset(name) {
     <meta charset="utf-8">
     <style>
       {css}
+      #name {{
+        display: flex;
+        padding: 20px;
+        justify-content: center;
+        align-content: center;
+        flex-direction: column;
+        background-color: #333;
+        color: #fff;
+        font-size: 36px;
+        margin-bottom: 20px;
+      }}
+
+      #name > p {{
+      }}
+
       #app {{
         display: flex;
         flex-direction: row;
@@ -75,6 +91,7 @@ async function savePreset(name) {
     <title>Rust Jack Audio Control App</title>
   </head>
   <body>
+    <div id="name">{name}</div>
     <div id="app">
       <div id="presets"></div>
       <div id="params"></div>
@@ -91,15 +108,16 @@ async function savePreset(name) {
 "#)
 }
 
-pub fn start_server(shared_lib: &str) {
+pub fn start_server(shared_lib: &str, config: &Config) {
   let shared_lib = shared_lib.to_string();
+  let config = config.clone();
   spawn(move || {
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
 
     for stream in listener.incoming() {
       let stream = stream.unwrap();
 
-      handle_connection(stream, &shared_lib);
+      handle_connection(stream, &shared_lib, &config);
     }
   });
 }
@@ -110,7 +128,7 @@ fn get_url(request_line: &str) -> &str {
   &request_line[byte_index_start..byte_index_end]
 }
 
-fn handle_connection(mut stream: TcpStream, shared_lib: &str) {
+fn handle_connection(mut stream: TcpStream, shared_lib: &str, config: &Config) {
   let mut buf_reader = BufReader::new(&mut stream);
   let mut request_line = String::new();
   let mut content_length = 0;
@@ -142,13 +160,13 @@ fn handle_connection(mut stream: TcpStream, shared_lib: &str) {
     stream.write_all(response.as_bytes()).unwrap();
   } else if request_line.starts_with("GET /") {
     let status_line = "HTTP/1.1 200 OK";
-    let html = create_html(&shared_lib);
+    let html = create_html(&shared_lib, &config);
     let length = html.len();
     let response = format!("{status_line}\r\nContent-Length: {length}\r\nAccess-Control-Allow-Origin: *\r\n\r\n{html}");
     stream.write_all(response.as_bytes()).unwrap();
   } else if request_line.starts_with("POST /savepreset") {
     let preset_name = body;
-    let mut presets_file = std::fs::OpenOptions::new().create(true).append(true).open("presets.txt").unwrap();
+    let mut presets_file = std::fs::OpenOptions::new().create(true).append(true).open(format!("presets/{}.txt", config.name.to_lowercase())).unwrap();
     let mut preset_line = format!("{},", preset_name);
     for param in PARAMS.lock().unwrap().iter() {
       preset_line.push_str(&format!("{},", param.name));

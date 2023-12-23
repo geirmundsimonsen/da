@@ -262,6 +262,8 @@ pub fn play(shared_lib: &str) {
         unsafe { lib.get::<Symbol<unsafe extern fn(&mut Vec<Param>) -> Config>>(b"init").unwrap()(&mut params) }
     };
 
+    crate::http::start_server(shared_lib, &config);
+
     create_jack_client(&config.name);
     for _ in 0..config.num_in_channels {
         create_in_port();
