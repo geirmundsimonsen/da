@@ -1,15 +1,8 @@
 [package]
-name = "patch"
+name = "cs-env"
 version = "0.1.0"
 edition = "2021"
 
-[lib]
-crate-type = ["dylib"]
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[build-dependencies]
-bindgen = "0.69.1"
-
 [dependencies]
-libc = "0.2.0"
