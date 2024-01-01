@@ -186,7 +186,7 @@ pub fn parse_config(csd: String, params: &mut Vec<Param>) -> String {
                 unsafe { midi::MIDI_ROUTINGS.push(midi::MidiRoutingAndModeData { mr: mr, md: midi::ModeData::Poly }); }
             },
             midi::Mode::PolyTrig => {
-                unsafe { midi::MIDI_ROUTINGS.push(midi::MidiRoutingAndModeData { mr: mr, md: midi::ModeData::PolyTrig }); }
+                unsafe { midi::MIDI_ROUTINGS.push(midi::MidiRoutingAndModeData { mr: mr, md: midi::ModeData::PolyTrig(0) }); }
             }
         }
     }

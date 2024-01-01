@@ -24,7 +24,11 @@ ksmps = 64
 
 instr 1
 asig = vco2(1, mtof(p4))
-out asig
+aenv = transeg(p5, 8, -4, 0)
+if k(aenv) == 0 then
+    turnoff
+endif
+out asig * aenv
 endin
 
 </CsInstruments>

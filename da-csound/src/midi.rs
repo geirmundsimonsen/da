@@ -13,7 +13,7 @@ pub enum Mode {
 pub enum ModeData {
     Mono(Option<u8>),
     Poly,
-    PolyTrig
+    PolyTrig(i32)
 }
 
 #[derive(Deserialize, PartialEq, Debug)]
@@ -62,7 +62,13 @@ pub fn process_midi(midi: &Midi) {
             Mode::PolyTrig => {
                 if let Midi::On(on) = midi {
                     if on.channel == mramd.mr.channel {
-                        crate::send_instr_event(&vec![mramd.mr.instr as f64 + on.note as f64 / 1000.0, 0.0, -1.0, on.note as f64, on.velocity as f64]);
+                        if let ModeData::PolyTrig(counter) = &mut mramd.md {
+                            if *counter >= 10000 {
+                                *counter = 0;
+                            }
+                            *counter += 1;
+                            crate::send_instr_event(&vec![mramd.mr.instr as f64 + *counter as f64 / 10000.0, 0.0, -1.0, on.note as f64, on.velocity as f64]);
+                        }
                     }
                 }
             }
