@@ -1,6 +1,8 @@
 use da_interface::Midi;
 use serde::Deserialize;
 
+// for efficiency, consider an array corresponding to the MIDI channels (and maybe ports)
+// but only if performance is an issue
 pub static mut MIDI_ROUTINGS: Vec<MidiRoutingAndModeData> = Vec::new();
 
 #[derive(Deserialize, PartialEq, Debug)]
@@ -41,7 +43,7 @@ pub fn process_midi(midi: &Midi) {
                     if off.channel == mramd.mr.channel {
                         if let ModeData::Mono(Some(note)) = mramd.md {
                             if note == off.note {
-                                crate::send_instr_event(&vec![mramd.mr.instr as f64, 0.0, 0.0, off.note as f64, off.velocity as f64]);
+                                crate::send_instr_event(&vec![mramd.mr.instr as f64 * -1.0, 0.0, 0.0, off.note as f64, off.velocity as f64]);
                                 mramd.md = ModeData::Mono(None);
                             }
                         }
