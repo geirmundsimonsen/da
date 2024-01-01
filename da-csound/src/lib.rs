@@ -8,6 +8,7 @@ use regex::Regex;
 
 static mut CSOUND: Option<csound::Csound> = None;
 static mut KSMPS: u64 = 16;
+static mut OUT_CH: u32 = 1;
 static mut PARAM_UPDATE_SAMPLES: u64 = 48000;
 
 pub fn get_csd_from_env() -> String {
@@ -225,6 +226,7 @@ pub fn init2(csd: String, config: &Config) {
         }
         
         KSMPS = ksmps;
+        OUT_CH = config.num_out_channels;
 
         PARAM_UPDATE_SAMPLES = (48000 * config.upsampling_factor / 100) as u64;
     }
@@ -278,7 +280,12 @@ pub fn process(time_in_samples: u64, params: &Vec<Param>, samples: &mut [f64; 32
         }
     
         let spout = CSOUND.as_ref().unwrap().get_output_buffer().unwrap();
-        samples[0] = spout[time_in_samples as usize % 256];
+
+        let pos_in_buffer_window = time_in_samples % 256;
+        
+        for i in 0..OUT_CH as usize {
+            samples[i] = spout[pos_in_buffer_window as usize * OUT_CH as usize + i];
+        }
     }
 }
 
