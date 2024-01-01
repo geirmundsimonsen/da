@@ -204,7 +204,7 @@ impl ProcessHandler for ConcreteProcessHandler {
 }
 
 pub fn create_jack_client(name: &str) {
-    let (client, status) = Client::new(name, ClientOptions::NO_START_SERVER).unwrap();
+    let (client, status) = Client::new(name, ClientOptions::NO_START_SERVER).expect("\nFailed to create JACK client.\n");
     if !status.is_empty() {
         println!("JACK client status: {:?}", status);
     }
@@ -257,6 +257,7 @@ pub fn parse_connections(unparsed_connections: &str) -> Vec<(String, String)> {
 }
 
 pub fn connect_ports(client: &Client, out_port: &str, in_port: &str) {
+    println!("Connecting {} to {}", out_port, in_port);
     client.connect_ports_by_name(out_port, in_port).unwrap();
 }
 

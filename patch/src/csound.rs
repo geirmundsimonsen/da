@@ -2,16 +2,10 @@
 use da_interface::{Config, Midi, system_playback, keyboard_out, make_config, config, connect, self_midi_in, self_out, Param, lin_param, exp_param};
 
 pub fn init(params: &mut Vec<Param>) -> Config {
-    make_config("Kick", 16, 0, 1, 1, 0);
-    da_csound::init("src/kick.csd", 64, 100, config());
-
-    connect(keyboard_out(), self_midi_in(1));
-    connect(self_out(1), system_playback(9));
-
-    params.push(lin_param("Freq", 50.0, 30.0, 120.0, 1));
-    params.push(exp_param("Gain", 2.0, 1.0, 100.0, 1));
-    params.push(lin_param("P.Dec.", 0.3, 0.0, 1.0, 3));
-    params.push(exp_param("P.Str.", 100.0, 0.0, 10000.0, 0));
+    make_config("DefaultCsound", 1, 0, 1, 1, 0);
+    let csd = da_csound::get_csd_from_env();
+    let csd = da_csound::parse_config(csd, params);
+    da_csound::init2(csd, config());
 
     config().clone()
 }

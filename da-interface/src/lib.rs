@@ -30,7 +30,7 @@ impl Config {
     }
 }
 
-static mut CONFIG: Option<Config> = None;
+pub static mut CONFIG: Option<Config> = None;
 
 pub fn make_config(
     name: &str,
@@ -101,7 +101,7 @@ pub fn reaper_midi_out(port: u32) -> String {
     format!("REAPER:MIDI Output {}", port)
 }
 
-pub fn keyboard_in() -> String {
+pub fn keyboard_out() -> String {
     format!("a2j:A-Series Keyboard [28] (capture): A-Series Keyboard Keyboard")
 }
 

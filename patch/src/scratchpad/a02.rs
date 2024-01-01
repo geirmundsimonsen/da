@@ -1,13 +1,13 @@
 #![allow(unused_imports, unused_variables, dead_code)]
-use da_interface::{Config, Midi, Param, system_playback, reaper_in, keyboard_in, make_config, config, connect, self_midi_in, self_out, ParamType, list_param, exp_param};
+use da_interface::{Config, Midi, Param, system_playback, reaper_in, keyboard_out, make_config, config, connect, self_midi_in, self_out, ParamType, list_param, exp_param};
 
 pub fn init(params: &mut Vec<Param>) -> Config {
     make_config("a02", 16, 0, 1, 1, 0);
     da_csound::init("src/scratchpad/a02.csd", 64, 100, config());
 
-    connect(keyboard_in(), self_midi_in(1));
+    connect(keyboard_out(), self_midi_in(1));
     connect(self_out(1), system_playback(9));
-    connect(self_out(1), reaper_in(1));
+    //connect(self_out(1), reaper_in(1));
 
     config().clone()
 }

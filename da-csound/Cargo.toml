@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 da-interface = { path = "../da-interface" }
 csound = "0.1.8"
+regex = "1.10.2"
