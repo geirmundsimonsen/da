@@ -9,3 +9,5 @@ edition = "2021"
 da-interface = { path = "../da-interface" }
 csound = "0.1.8"
 regex = "1.10.2"
+serde = { version = "1.0.193", features = ["derive"] }
+serde_yaml = "0.9.29"

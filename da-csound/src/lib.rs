@@ -1,3 +1,6 @@
+pub mod config;
+pub mod midi;
+
 use core::panic;
 
 use da_interface::{CONFIG, Config, Param, ParamType, connect, keyboard_out, self_out, system_playback, self_midi_in, self_midi_out, reaper_midi_out, reaper_midi_in, system_capture, reaper_out, self_in, reaper_in};
@@ -21,228 +24,173 @@ pub fn parse_config(csd: String, params: &mut Vec<Param>) -> String {
     let config_start = csd.find("<Config>").expect("\n<Config> block missing.\n");
     let config_end = csd.find("</Config>").expect("\n</Config> terminator missing\n");
 
-    let config_dsl = &csd[config_start+9..config_end];
-    config_dsl.lines().for_each(|line| {
-        let mut key_value = line.split("=");
+    let config_yml = &csd[config_start+9..config_end];
+    
+    let config = config::parse_config(config_yml);
 
-        let key = match key_value.next() {
-            Some(k) => k.trim(),
-            None => panic!("\nNo key before an =. Line: {}\n", line)
-        };
-        
-        let value = match key_value.next() {
-            Some(v) => v.trim(),
-            None => panic!("\nNo value after an =. Line: {}\n", line)
-        };
-        
-        match key {
-            "name" => { unsafe { CONFIG.as_mut().unwrap().name = value.to_string(); }},
-            "upsample" => {
-                let upsampling_factor = match value.parse::<u32>() {
-                    Ok(v) => v,
-                    Err(_) => panic!("\nError parsing upsample value: {}. Line: {}\n", value, line)
-                };
-                unsafe { CONFIG.as_mut().unwrap().upsampling_factor = upsampling_factor; }
-            },
-            "audio_channels" => {
-                let (num_in_channels, num_out_channels) = match value.split_once(",") {
-                    Some((num_in_channels, num_out_channels)) => {
-                        (
-                            match num_in_channels.trim().parse::<u32>() {
-                                Ok(v) => v,
-                                Err(_) => panic!("\nError parsing audio_channels value: {}. Line: {}\n", value, line)
-                            },
-                            match num_out_channels.trim().parse::<u32>() {
-                                Ok(v) => v,
-                                Err(_) => panic!("\nError parsing audio_channels value: {}. Line: {}\n", value, line)
-                            }
-                        )
-                    },
-                    None => panic!("\nNo comma in audio_channels value: {}. Line: {}\n", value, line)
-                };
-                unsafe {
-                    CONFIG.as_mut().unwrap().num_in_channels = num_in_channels;
-                    CONFIG.as_mut().unwrap().num_out_channels = num_out_channels;
-                }
-            },
-            "midi_ports" => {
-                let (num_in_ports, num_out_ports) = match value.split_once(",") {
-                    Some((num_in_ports, num_out_ports)) => {
-                        (
-                            match num_in_ports.trim().parse::<u32>() {
-                                Ok(v) => v,
-                                Err(_) => panic!("\nError parsing midi_ports value: {}. Line: {}\n", value, line)
-                            },
-                            match num_out_ports.trim().parse::<u32>() {
-                                Ok(v) => v,
-                                Err(_) => panic!("\nError parsing midi_ports value: {}. Line: {}\n", value, line)
-                            }
-                        )
-                    },
-                    None => panic!("\nNo comma in midi_ports value: {}. Line: {}\n", value, line)
-                };
-                
-                
-                unsafe {
-                    CONFIG.as_mut().unwrap().num_midi_in_ports = num_in_ports;
-                    CONFIG.as_mut().unwrap().num_midi_out_ports = num_out_ports;
-                }
-            },
-            "m_connect" => {
-                let (m_out, m_in) = match value.split_once(",") {
-                    Some((m_out, m_in)) => (m_out.trim(), m_in.trim()),
-                    None => panic!("\nNo comma in m_connect value: {}. Line: {}\n", value, line)
-                };
+    unsafe { CONFIG.as_mut().unwrap().name = config.name; }
+    unsafe { CONFIG.as_mut().unwrap().upsampling_factor = config.upsample; }
+    unsafe { CONFIG.as_mut().unwrap().num_in_channels = config.audio_in; }
+    unsafe { CONFIG.as_mut().unwrap().num_out_channels = config.audio_out; }
+    unsafe { CONFIG.as_mut().unwrap().num_midi_in_ports = config.midi_in; }
+    unsafe { CONFIG.as_mut().unwrap().num_midi_out_ports = config.midi_out; }
 
-                let midi_out = if m_out == "keyboard" {
-                    keyboard_out()
-                } else {
-                    match m_out.split_once(":") {
-                        Some((m_out_id, m_out_port)) => {
-                            let m_out_id = m_out_id.trim();
-                            let m_out_port = match m_out_port.trim().parse::<u32>() {
-                                Ok(v) => v,
-                                Err(_) => panic!("\nError parsing midi_out port: {}. Line: {}\n", m_out_port, line)
-                            };
+    for midi_connect in config.midi_connect {
+        let m_out = midi_connect.0;
+        let m_in = midi_connect.1;
 
-                            if m_out_id == "self" {
-                                self_midi_out(m_out_port)
-                            } else if m_out_id == "reaper" {
-                                reaper_midi_out(m_out_port)
-                            } else {
-                                panic!("\nUnknown midi_out id: {}. Line: {}\n", m_out_id, line)
-                            }
-                        },
-                        None => panic!("\nNo colon in m_connect value: {}. Line: {}\n", value, line)
+        let midi_out = if m_out == "keyboard" {
+            keyboard_out()
+        } else {
+            match m_out.split_once(":") {
+                Some((m_out_id, m_out_port)) => {
+                    let m_out_id = m_out_id.trim();
+                    let m_out_port = match m_out_port.trim().parse::<u32>() {
+                        Ok(v) => v,
+                        Err(_) => panic!("\nError parsing midi_out port: {}\n", m_out_port)
+                    };
+    
+                    if m_out_id == "self" {
+                        self_midi_out(m_out_port)
+                    } else if m_out_id == "reaper" {
+                        reaper_midi_out(m_out_port)
+                    } else {
+                        panic!("\nUnknown midi_out id: {}\n", m_out_id)
                     }
-                };
-                
-                let midi_in = match m_in.split_once(":") {
-                    Some((m_in_id, m_in_port)) => {
-                        let m_in_id = m_in_id.trim();
-                        let m_in_port = match m_in_port.trim().parse::<u32>() {
-                            Ok(v) => v,
-                            Err(_) => panic!("\nError parsing midi_in port: {}. Line: {}\n", m_in_port, line)
-                        };
-
-                        if m_in_id == "self" {
-                            self_midi_in(m_in_port)
-                        } else if m_in_id == "reaper" {
-                            reaper_midi_in(m_in_port)
-                        } else {
-                            panic!("\nUnknown midi_in id: {}. Line: {}\n", m_in_id, line)
-                        }
-                    },
-                    None => panic!("\nNo colon in m_connect value: {}. Line: {}\n", value, line)
-                };
-                
-                connect(midi_out, midi_in);
-            },
-            "a_connect" => {
-                let (a_out, a_in) = match value.split_once(",") {
-                    Some((a_out, a_in)) => (a_out.trim(), a_in.trim()),
-                    None => panic!("\nNo comma in a_connect value: {}. Line: {}\n", value, line)
-                };
-
-                let audio_out = match a_out.split_once(":") {
-                    Some((a_out_id, a_out_port)) => {
-                        let a_out_id = a_out_id.trim();
-                        let a_out_port = match a_out_port.trim().parse::<u32>() {
-                            Ok(v) => v,
-                            Err(_) => panic!("\nError parsing audio_out port: {}. Line: {}\n", a_out_port, line)
-                        };
-
-                        if a_out_id == "self" {
-                            self_out(a_out_port)
-                        } else if a_out_id == "system" {
-                            system_capture(a_out_port)
-                        } else if a_out_id == "reaper" {
-                            reaper_out(a_out_port)
-                        } else {
-                            panic!("\nUnknown audio_out id: {}. Line: {}\n", a_out_id, line)
-                        }
-                    },
-                    None => panic!("\nNo colon in a_connect value: {}. Line: {}\n", value, line)
-                };
-                
-                let audio_in = match a_in.split_once(":") {
-                    Some((a_in_id, a_in_port)) => {
-                        let a_in_id = a_in_id.trim();
-                        let a_in_port = match a_in_port.trim().parse::<u32>() {
-                            Ok(v) => v,
-                            Err(_) => panic!("\nError parsing audio_in port: {}. Line: {}\n", a_in_port, line)
-                        };
-
-                        if a_in_id == "self" {
-                            self_in(a_in_port)
-                        } else if a_in_id == "system" {
-                            system_playback(a_in_port)
-                        } else if a_in_id == "reaper" {
-                            reaper_in(a_in_port)
-                        } else {
-                            panic!("\nUnknown audio_in id: {}. Line: {}\n", a_in_id, line)
-                        }
-                    },
-                    None => panic!("\nNo colon in a_connect value: {}. Line: {}\n", value, line)
-                };
-                
-                connect(audio_out, audio_in);
-            },
-            "param" => {
-                let param_args = value.splitn(4, ",").map(|s| s.trim()).collect::<Vec<&str>>();
-                let param_type_str = param_args[0];
-                let name = param_args[1];
-                let default_value = match param_args[2].parse::<f64>() {
-                    Ok(v) => v,
-                    Err(_) => panic!("\nError parsing param value: {}. Line: {}\n", param_args[2], line)
-                };
-                let param_type = match param_type_str {
-                    "lin" => {
-                        let lin_param_args = param_args[3].splitn(3, ",").map(|s| s.trim()).collect::<Vec<&str>>();
-                        let min = match lin_param_args[0].parse::<f64>() {
-                            Ok(v) => v,
-                            Err(_) => panic!("\nError parsing lin param min value: {}. Line: {}\n", lin_param_args[0], line)
-                        };
-                        let max = match lin_param_args[1].parse::<f64>() {
-                            Ok(v) => v,
-                            Err(_) => panic!("\nError parsing lin param max value: {}. Line: {}\n", lin_param_args[1], line)
-                        };
-                        let digits = match lin_param_args[2].parse::<i32>() {
-                            Ok(v) => v,
-                            Err(_) => panic!("\nError parsing lin param digits value: {}. Line: {}\n", lin_param_args[2], line)
-                        };
-                        ParamType::Linear(min, max, digits)
-                    },
-                    "exp" => {
-                        let exp_param_args = param_args[3].splitn(3, ",").map(|s| s.trim()).collect::<Vec<&str>>();
-                        let min = match exp_param_args[0].parse::<f64>() {
-                            Ok(v) => v,
-                            Err(_) => panic!("\nError parsing exp param min value: {}. Line: {}\n", exp_param_args[0], line)
-                        };
-                        let max = match exp_param_args[1].parse::<f64>() {
-                            Ok(v) => v,
-                            Err(_) => panic!("\nError parsing exp param max value: {}. Line: {}\n", exp_param_args[1], line)
-                        };
-                        let digits = match exp_param_args[2].parse::<i32>() {
-                            Ok(v) => v,
-                            Err(_) => panic!("\nError parsing exp param digits value: {}. Line: {}\n", exp_param_args[2], line)
-                        };
-                        ParamType::Exponential(min, max, digits)
-                    },
-                    _ => panic!("\nUnknown param type: {}. Line: {}\n", param_type_str, line)
-                };
-
-
-                params.push(Param::new(name, default_value, param_type))
+                },
+                None => panic!("\nNo colon in midi_connect\n")
             }
-            _ => { 
-                if !key.starts_with(";") && !key.starts_with("//") && !key.starts_with("#") {
-                    panic!("Unknown key: {}. Line: {}", key, line);
+        };
+    
+        let midi_in = match m_in.split_once(":") {
+            Some((m_in_id, m_in_port)) => {
+                let m_in_id = m_in_id.trim();
+                let m_in_port = match m_in_port.trim().parse::<u32>() {
+                    Ok(v) => v,
+                    Err(_) => panic!("\nError parsing midi_in port: {}\n", m_in_port)
+                };
+    
+                if m_in_id == "self" {
+                    self_midi_in(m_in_port)
+                } else if m_in_id == "reaper" {
+                    reaper_midi_in(m_in_port)
+                } else {
+                    panic!("\nUnknown midi_in id: {}\n", m_in_id)
                 }
+            },
+            None => panic!("\nNo colon in midi_connect\n")
+        };
+
+        connect(midi_out, midi_in);
+    }
+
+    for audio_connect in config.audio_connect {
+        let a_out = audio_connect.0;
+        let a_in = audio_connect.1;
+
+        let audio_out = match a_out.split_once(":") {
+            Some((a_out_id, a_out_port)) => {
+                let a_out_id = a_out_id.trim();
+                let a_out_port = match a_out_port.trim().parse::<u32>() {
+                    Ok(v) => v,
+                    Err(_) => panic!("\nError parsing audio_out port: {}\n", a_out_port)
+                };
+
+                if a_out_id == "self" {
+                    self_out(a_out_port)
+                } else if a_out_id == "system" {
+                    system_capture(a_out_port)
+                } else if a_out_id == "reaper" {
+                    reaper_out(a_out_port)
+                } else {
+                    panic!("\nUnknown audio_out id: {}\n", a_out_id)
+                }
+            },
+            None => panic!("\nNo colon in audio_connect\n")
+        };
+        
+        let audio_in = match a_in.split_once(":") {
+            Some((a_in_id, a_in_port)) => {
+                let a_in_id = a_in_id.trim();
+                let a_in_port = match a_in_port.trim().parse::<u32>() {
+                    Ok(v) => v,
+                    Err(_) => panic!("\nError parsing audio_in port: {}\n", a_in_port)
+                };
+
+                if a_in_id == "self" {
+                    self_in(a_in_port)
+                } else if a_in_id == "system" {
+                    system_playback(a_in_port)
+                } else if a_in_id == "reaper" {
+                    reaper_in(a_in_port)
+                } else {
+                    panic!("\nUnknown audio_in id: {}\n", a_in_id)
+                }
+            },
+            None => panic!("\nNo colon in audio_connect\n")
+        };
+        
+        connect(audio_out, audio_in);
+    }
+
+    for param_args in config.param {
+        let param_type_str = &param_args[0];
+        let name = &param_args[1];
+        let default_value = match param_args[2].parse::<f64>() {
+            Ok(v) => v,
+            Err(_) => panic!("\nError parsing param value: {}\n", param_args[2])
+        };
+        let param_type = match param_type_str.as_str() {
+            "lin" => {
+                let min = match param_args[3].parse::<f64>() {
+                    Ok(v) => v,
+                    Err(_) => panic!("\nError parsing lin param min value: {}\n", param_args[3])
+                };
+                let max = match param_args[4].parse::<f64>() {
+                    Ok(v) => v,
+                    Err(_) => panic!("\nError parsing lin param max value: {}\n", param_args[4])
+                };
+                let digits = match param_args[5].parse::<i32>() {
+                    Ok(v) => v,
+                    Err(_) => panic!("\nError parsing lin param digits value: {}\n", param_args[5])
+                };
+                ParamType::Linear(min, max, digits)
+            },
+            "exp" => {
+                let min = match param_args[3].parse::<f64>() {
+                    Ok(v) => v,
+                    Err(_) => panic!("\nError parsing exp param min value: {}\n", param_args[3])
+                };
+                let max = match param_args[4].parse::<f64>() {
+                    Ok(v) => v,
+                    Err(_) => panic!("\nError parsing exp param max value: {}\n", param_args[4])
+                };
+                let digits = match param_args[5].parse::<i32>() {
+                    Ok(v) => v,
+                    Err(_) => panic!("\nError parsing exp param digits value: {}\n", param_args[5])
+                };
+                ParamType::Exponential(min, max, digits)
+            },
+            _ => panic!("\nUnknown param type: {}\n", param_type_str)
+        };
+
+        params.push(Param::new(&name, default_value, param_type))
+    }
+    
+    for mr in config.midi_routing {
+        match mr.mode {
+            midi::Mode::Mono => {
+                unsafe { midi::MIDI_ROUTINGS.push(midi::MidiRoutingAndModeData { mr: mr, md: midi::ModeData::Mono(None) }); }
+            },
+            midi::Mode::Poly => {
+                unsafe { midi::MIDI_ROUTINGS.push(midi::MidiRoutingAndModeData { mr: mr, md: midi::ModeData::Poly }); }
+            },
+            midi::Mode::PolyTrig => {
+                unsafe { midi::MIDI_ROUTINGS.push(midi::MidiRoutingAndModeData { mr: mr, md: midi::ModeData::PolyTrig }); }
             }
         }
-    });
-    
+    }
+
     let csd = &csd[config_end+9..];
     csd.to_string()
 }
