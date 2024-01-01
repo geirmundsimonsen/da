@@ -10,16 +10,16 @@ pub struct AudioConnect(pub String, pub String);
 
 #[derive(Deserialize, PartialEq, Debug)]
 pub struct YmlConfig {
-    pub name: String,
-    pub upsample: u32,
-    pub audio_in: u32,
-    pub audio_out: u32,
-    pub midi_in: u32,
-    pub midi_out: u32,
-    pub midi_connect: Vec<MidiConnect>,
-    pub audio_connect: Vec<AudioConnect>,
-    pub param: Vec<Vec<String>>,
-    pub midi_routing: Vec<MidiRouting>,
+    pub name: Option<String>,
+    pub upsample: Option<u32>,
+    pub audio_in: Option<u32>,
+    pub audio_out: Option<u32>,
+    pub midi_in: Option<u32>,
+    pub midi_out: Option<u32>,
+    pub midi_connect: Option<Vec<MidiConnect>>,
+    pub audio_connect: Option<Vec<AudioConnect>>,
+    pub param: Option<Vec<Vec<String>>>,
+    pub midi_routing: Option<Vec<MidiRouting>>,
 }
 
 pub fn parse_config(yml: &str) -> YmlConfig {

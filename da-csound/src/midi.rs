@@ -55,7 +55,7 @@ pub fn process_midi(midi: &Midi) {
                     }
                 } else if let Midi::Off(off) = midi {
                     if off.channel == mramd.mr.channel {
-                        crate::send_instr_event(&vec![mramd.mr.instr as f64 + off.note as f64 / 1000.0, 0.0, 0.0, off.note as f64, off.velocity as f64]);
+                        crate::send_instr_event(&vec![(mramd.mr.instr as f64 + off.note as f64 / 1000.0) * -1.0, 0.0, -1.0, off.note as f64, off.velocity as f64]);
                     }
                 }
             },

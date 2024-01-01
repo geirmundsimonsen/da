@@ -16,6 +16,8 @@ pub fn get_csd_from_env() -> String {
         Err(_) => panic!("\nDA_CSOUND environment variable not set.\n")
     };
 
+    println!("Using CSD: {}", csd_path);
+
     std::fs::read_to_string(csd_path).expect("\nError reading CSD file.\n")
 }
 
@@ -28,14 +30,14 @@ pub fn parse_config(csd: String, params: &mut Vec<Param>) -> String {
     
     let config = config::parse_config(config_yml);
 
-    unsafe { CONFIG.as_mut().unwrap().name = config.name; }
-    unsafe { CONFIG.as_mut().unwrap().upsampling_factor = config.upsample; }
-    unsafe { CONFIG.as_mut().unwrap().num_in_channels = config.audio_in; }
-    unsafe { CONFIG.as_mut().unwrap().num_out_channels = config.audio_out; }
-    unsafe { CONFIG.as_mut().unwrap().num_midi_in_ports = config.midi_in; }
-    unsafe { CONFIG.as_mut().unwrap().num_midi_out_ports = config.midi_out; }
+    unsafe { CONFIG.as_mut().unwrap().name = config.name.unwrap_or("DA-Csound".to_string()) }
+    unsafe { CONFIG.as_mut().unwrap().upsampling_factor = config.upsample.unwrap_or(1); }
+    unsafe { CONFIG.as_mut().unwrap().num_in_channels = config.audio_in.unwrap_or(0); }
+    unsafe { CONFIG.as_mut().unwrap().num_out_channels = config.audio_out.unwrap_or(1); }
+    unsafe { CONFIG.as_mut().unwrap().num_midi_in_ports = config.midi_in.unwrap_or(1); }
+    unsafe { CONFIG.as_mut().unwrap().num_midi_out_ports = config.midi_out.unwrap_or(0); }
 
-    for midi_connect in config.midi_connect {
+    for midi_connect in config.midi_connect.unwrap_or(Vec::new()) {
         let m_out = midi_connect.0;
         let m_in = midi_connect.1;
 
@@ -84,7 +86,7 @@ pub fn parse_config(csd: String, params: &mut Vec<Param>) -> String {
         connect(midi_out, midi_in);
     }
 
-    for audio_connect in config.audio_connect {
+    for audio_connect in config.audio_connect.unwrap_or(Vec::new()) {
         let a_out = audio_connect.0;
         let a_in = audio_connect.1;
 
@@ -133,7 +135,7 @@ pub fn parse_config(csd: String, params: &mut Vec<Param>) -> String {
         connect(audio_out, audio_in);
     }
 
-    for param_args in config.param {
+    for param_args in config.param.unwrap_or(Vec::new()) {
         let param_type_str = &param_args[0];
         let name = &param_args[1];
         let default_value = match param_args[2].parse::<f64>() {
@@ -177,16 +179,16 @@ pub fn parse_config(csd: String, params: &mut Vec<Param>) -> String {
         params.push(Param::new(&name, default_value, param_type))
     }
     
-    for mr in config.midi_routing {
+    for mr in config.midi_routing.unwrap_or(Vec::new()) {
         match mr.mode {
             midi::Mode::Mono => {
-                unsafe { midi::MIDI_ROUTINGS.push(midi::MidiRoutingAndModeData { mr: mr, md: midi::ModeData::Mono(None) }); }
+                unsafe { midi::MIDI_ROUTINGS.push(midi::MidiRoutingAndModeData { mr, md: midi::ModeData::Mono(None) }); }
             },
             midi::Mode::Poly => {
-                unsafe { midi::MIDI_ROUTINGS.push(midi::MidiRoutingAndModeData { mr: mr, md: midi::ModeData::Poly }); }
+                unsafe { midi::MIDI_ROUTINGS.push(midi::MidiRoutingAndModeData { mr, md: midi::ModeData::Poly }); }
             },
             midi::Mode::PolyTrig => {
-                unsafe { midi::MIDI_ROUTINGS.push(midi::MidiRoutingAndModeData { mr: mr, md: midi::ModeData::PolyTrig(0) }); }
+                unsafe { midi::MIDI_ROUTINGS.push(midi::MidiRoutingAndModeData { mr, md: midi::ModeData::PolyTrig(0) }); }
             }
         }
     }
