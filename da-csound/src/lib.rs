@@ -8,8 +8,10 @@ use regex::Regex;
 
 static mut CSOUND: Option<csound::Csound> = None;
 static mut KSMPS: u64 = 16;
+static mut IN_CH: u32 = 0;
 static mut OUT_CH: u32 = 1;
-static mut PARAM_UPDATE_SAMPLES: u64 = 48000;
+static BUFFER_SIZE: u32 = 256;
+static mut UPSAMPLING_FACTOR: u32 = 1;
 
 pub fn get_csd_from_env() -> String {
     let csd_path = match std::env::var("DA_CSOUND") {
@@ -32,6 +34,7 @@ pub fn parse_config(csd: String, params: &mut Vec<Param>) -> String {
 
     unsafe { CONFIG.as_mut().unwrap().name = config.name.unwrap_or("DA-Csound".to_string()) }
     unsafe { CONFIG.as_mut().unwrap().upsampling_factor = config.upsample.unwrap_or(1); }
+    unsafe { UPSAMPLING_FACTOR = config.upsample.unwrap_or(1); }
     unsafe { CONFIG.as_mut().unwrap().num_in_channels = config.audio_in.unwrap_or(0); }
     unsafe { CONFIG.as_mut().unwrap().num_out_channels = config.audio_out.unwrap_or(1); }
     unsafe { CONFIG.as_mut().unwrap().num_midi_in_ports = config.midi_in.unwrap_or(1); }
@@ -199,13 +202,15 @@ pub fn parse_config(csd: String, params: &mut Vec<Param>) -> String {
 
 pub fn init2(csd: String, config: &Config) {
     let cs_instruments_end = csd.find("<CsInstruments>").unwrap() + 15;
-    let csd = format!("{}\nsr={}\nnchnls={}\n{}", &csd[..cs_instruments_end], 48000 * config.upsampling_factor, config.num_out_channels, &csd[cs_instruments_end..]);
+    let csd = format!("{}\nsr={}\nnchnls={}\nnchnls_i={}\n{}", &csd[..cs_instruments_end], 48000 * config.upsampling_factor, config.num_out_channels, config.num_in_channels, &csd[cs_instruments_end..]);
     let re_ksmps = Regex::new(r"ksmps\s*=\s*(\d+)").unwrap();
     let ksmps = re_ksmps.captures(&csd).expect("\nksmps not found in csd\n").get(1).unwrap().as_str().parse::<u64>().unwrap();
 
     unsafe {
         CSOUND = Some(csound::Csound::new());
         CSOUND.as_ref().unwrap().create_message_buffer(1);
+
+        CSOUND.as_ref().unwrap().set_host_implemented_audioIO(1, BUFFER_SIZE * UPSAMPLING_FACTOR);
 
         // these options prevent csound from writing a wav file
         let _ = CSOUND.as_ref().unwrap().set_option("-odac");
@@ -225,14 +230,13 @@ pub fn init2(csd: String, config: &Config) {
         }
         
         KSMPS = ksmps;
+        IN_CH = config.num_in_channels;
         OUT_CH = config.num_out_channels;
-
-        PARAM_UPDATE_SAMPLES = (48000 * config.upsampling_factor / 100) as u64;
     }
 
 }
 
-pub fn init(csd: &str, ksmps: u64, param_update_hz: u32, config: &Config) {
+pub fn init(csd: &str, ksmps: u64, config: &Config) {
     let csd = std::fs::read_to_string(csd).unwrap();
     let cs_instruments_end = csd.find("<CsInstruments>").unwrap() + 15;
     let csd = format!("{}\nsr={}\nksmps={}\nnchnls={}\n{}", &csd[..cs_instruments_end], 48000 * config.upsampling_factor, ksmps, config.num_out_channels, &csd[cs_instruments_end..]);
@@ -258,7 +262,6 @@ pub fn init(csd: &str, ksmps: u64, param_update_hz: u32, config: &Config) {
             }
         }
         KSMPS = ksmps;
-        PARAM_UPDATE_SAMPLES = (48000 * config.upsampling_factor / param_update_hz) as u64;
     }
 }
 
@@ -266,25 +269,35 @@ pub fn process_next_block(samples: &Vec<Vec<f64>>, params: &Vec<Param>) {
     for i in 0..params.len() {
         unsafe { CSOUND.as_mut().unwrap().set_control_channel(&format!("{}", params[i].name), params[i].value); }
     }
+
+    unsafe {
+        let mut spin = CSOUND.as_ref().unwrap().get_input_buffer().unwrap();
+            
+        for ch in 0..IN_CH as usize {
+            for i in 0..(BUFFER_SIZE * UPSAMPLING_FACTOR) as usize {
+                spin[i * IN_CH as usize + ch] = samples[ch][i];
+            }
+        }
+    }
 }
 
-
-pub fn process(time_in_samples: u64, params: &Vec<Param>, samples: &mut [f64; 32], done: &mut bool) {
+pub fn process(time_in_samples: u64, _params: &Vec<Param>, samples: &mut [f64; 32], done: &mut bool) {
     if *done {
         return;
     }
 
     unsafe {
+        
         if time_in_samples % KSMPS as u64 == 0 {
             *done = CSOUND.as_ref().unwrap().perform_ksmps();
         }
 
         let spout = CSOUND.as_ref().unwrap().get_output_buffer().unwrap();
 
-        let pos_in_buffer_window = time_in_samples % 256;
+        let pos_in_buffer_window = time_in_samples % (BUFFER_SIZE * UPSAMPLING_FACTOR) as u64;
         
-        for i in 0..OUT_CH as usize {
-            samples[i] = spout[pos_in_buffer_window as usize * OUT_CH as usize + i];
+        for ch in 0..OUT_CH as usize {
+            samples[ch] = spout[pos_in_buffer_window as usize * OUT_CH as usize + ch];
         }
     }
 }

@@ -3,7 +3,7 @@ use da_interface::{Config, Midi, system_playback, keyboard_out, make_config, con
 
 pub fn init(params: &mut Vec<Param>) -> Config {
     make_config("Kick", 16, 0, 1, 1, 0);
-    da_csound::init("src/kick.csd", 64, 100, config());
+    da_csound::init("src/kick.csd", 64, config());
 
     connect(keyboard_out(), self_midi_in(1));
     connect(self_out(1), system_playback(9));

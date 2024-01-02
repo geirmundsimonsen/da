@@ -3,7 +3,7 @@ use da_interface::{Config, Midi, Param, system_playback, reaper_in, keyboard_out
 
 pub fn init(params: &mut Vec<Param>) -> Config {
     make_config("Bass", 16, 0, 1, 1, 0);
-    da_csound::init("src/bass.csd", 64, 100, config());
+    da_csound::init("src/bass.csd", 64, config());
 
     connect(keyboard_out(), self_midi_in(1));
     connect(self_out(1), system_playback(9));
