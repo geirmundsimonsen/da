@@ -15,6 +15,10 @@ pub fn js() -> String {
     da_webui::create_js(r#"createDefaultUI();"#)
 }
 
+pub fn next_block(samples: &Vec<Vec<f64>>, params: &Vec<Param>) { 
+    da_csound::process_next_block(samples, params);
+}
+
 pub fn next(samples: &mut [f64; 32], time_in_samples: u64, midi_in: &Vec<Midi>, _midi_out: &mut Vec<Midi>, params: &mut Vec<Param>, done: &mut bool) {
     midi_in.iter().for_each(|m| {
         da_csound::midi::process_midi(m);

@@ -109,83 +109,84 @@ impl ProcessHandler for ConcreteProcessHandler {
         }
 
         let mut params = param::PARAMS.lock().unwrap();
-        
-        unsafe {
-            let next: libloading::Symbol<unsafe extern fn(&mut [f64; 32], u64, &Vec<Midi>, &mut Vec<Midi>, &mut Vec<Param>, &mut bool)> = self.lib.get(b"next").unwrap();
 
-            let empty_midi_events = Vec::new();
-            let mut empty_midi_events_out = Vec::new();
-            let mut raw_midi_events_out: Vec<Vec<(u32, Vec<u8>)>> = Vec::new();
+        let next_block: libloading::Symbol<unsafe extern fn(&Vec<Vec<f64>>, &Vec<Param>)> = unsafe { self.lib.get(b"next_block").unwrap() };
+        unsafe { next_block(&self.samples, &params) };
 
-            for _ in 0..self.num_midi_out_ports {
-                raw_midi_events_out.push(Vec::new());
-            }
+        let next: libloading::Symbol<unsafe extern fn(&mut [f64; 32], u64, &Vec<Midi>, &mut Vec<Midi>, &mut Vec<Param>, &mut bool)> = unsafe { self.lib.get(b"next").unwrap() }; 
 
-            for i in 0..ps.n_frames()*self.upsampling_factor as u32 {
-                for j in 0..self.num_in_channels {
-                    self.channel_sample_buf[j as usize] = self.samples[j as usize][i as usize];
-                }
+        let mut empty_midi_events_out = Vec::new();
+        let mut raw_midi_events_out: Vec<Vec<(u32, Vec<u8>)>> = Vec::new();
 
-                let midi_events_ref = block_midi_events.get(&i);
-                
-                if let Some(midi_events) = midi_events_ref {
-                    next(&mut self.channel_sample_buf, TIME_IN_SAMPLES, midi_events, &mut empty_midi_events_out, &mut params, &mut DONE);
-                } else {
-                    next(&mut self.channel_sample_buf, TIME_IN_SAMPLES, &empty_midi_events, &mut empty_midi_events_out, &mut params, &mut DONE);
-                }
-
-                if empty_midi_events_out.len() > 0 {
-                    for midi in empty_midi_events_out.iter() {
-                        match midi {
-                            Midi::On(note_on) => {
-                                raw_midi_events_out[note_on.port as usize].push((
-                                    i / self.upsampling_factor as u32,
-                                    vec![0x90 | note_on.channel, note_on.note, (note_on.velocity * 127.0) as u8],
-                                ));
-                            },
-                            Midi::Off(note_off) => {
-                                raw_midi_events_out[note_off.port as usize].push((
-                                    i / self.upsampling_factor as u32,
-                                    vec![0x80 | note_off.channel, note_off.note, (note_off.velocity * 127.0) as u8],
-                                ));
-                            },
-                            Midi::CC(cc) => {
-                                raw_midi_events_out[cc.port as usize].push((
-                                    i / self.upsampling_factor as u32,
-                                    vec![0xB0 | cc.channel, cc.cc, (cc.value * 127.0) as u8],
-                                ));
-                            },
-                            
-                            Midi::PB(pb) => {
-                                raw_midi_events_out[pb.port as usize].push((
-                                    i / self.upsampling_factor as u32,
-                                    vec![0xE0 | pb.channel, (pb.value * 16383.0 / 128.0) as u8, (pb.value * 16383.0 % 128.0) as u8],
-                                ));
-                            },
-                        }
-                    }
-                    empty_midi_events_out.clear();
-                }
-
-                for j in 0..self.num_out_channels {
-                    self.samples[j as usize][i as usize] = self.channel_sample_buf[j as usize];
-                }
-
-                MIDI_OUT_PORTS.lock().unwrap().iter_mut().enumerate().for_each(|(ch, port)| {
-                    let mut writer = port.writer(ps);
-                    let raw_midi_events = &raw_midi_events_out[ch];
-                    for raw_midi in raw_midi_events {
-                        let raw_raw_midi = RawMidi {
-                            time: raw_midi.0,
-                            bytes: raw_midi.1.as_slice(),
-                        };
-                        writer.write(&raw_raw_midi).unwrap();
-                    }
-                });
-
-                TIME_IN_SAMPLES += 1;
-            }
+        for _ in 0..self.num_midi_out_ports {
+            raw_midi_events_out.push(Vec::new());
         }
+
+        for i in 0..ps.n_frames()*self.upsampling_factor as u32 {
+            for j in 0..self.num_in_channels {
+                self.channel_sample_buf[j as usize] = self.samples[j as usize][i as usize];
+            }
+
+            let midi_events_ref = block_midi_events.get(&i);
+            
+            if let Some(midi_events) = midi_events_ref {
+                unsafe { next(&mut self.channel_sample_buf, TIME_IN_SAMPLES, midi_events, &mut empty_midi_events_out, &mut params, &mut DONE); }
+            } else {
+                unsafe { next(&mut self.channel_sample_buf, TIME_IN_SAMPLES, &Vec::new(), &mut empty_midi_events_out, &mut params, &mut DONE); }
+            }
+
+            if empty_midi_events_out.len() > 0 {
+                for midi in empty_midi_events_out.iter() {
+                    match midi {
+                        Midi::On(note_on) => {
+                            raw_midi_events_out[note_on.port as usize].push((
+                                i / self.upsampling_factor as u32,
+                                vec![0x90 | note_on.channel, note_on.note, (note_on.velocity * 127.0) as u8],
+                            ));
+                        },
+                        Midi::Off(note_off) => {
+                            raw_midi_events_out[note_off.port as usize].push((
+                                i / self.upsampling_factor as u32,
+                                vec![0x80 | note_off.channel, note_off.note, (note_off.velocity * 127.0) as u8],
+                            ));
+                        },
+                        Midi::CC(cc) => {
+                            raw_midi_events_out[cc.port as usize].push((
+                                i / self.upsampling_factor as u32,
+                                vec![0xB0 | cc.channel, cc.cc, (cc.value * 127.0) as u8],
+                            ));
+                        },
+                        
+                        Midi::PB(pb) => {
+                            raw_midi_events_out[pb.port as usize].push((
+                                i / self.upsampling_factor as u32,
+                                vec![0xE0 | pb.channel, (pb.value * 16383.0 / 128.0) as u8, (pb.value * 16383.0 % 128.0) as u8],
+                            ));
+                        },
+                    }
+                }
+                empty_midi_events_out.clear();
+            }
+
+            for j in 0..self.num_out_channels {
+                self.samples[j as usize][i as usize] = self.channel_sample_buf[j as usize];
+            }
+
+            MIDI_OUT_PORTS.lock().unwrap().iter_mut().enumerate().for_each(|(ch, port)| {
+                let mut writer = port.writer(ps);
+                let raw_midi_events = &raw_midi_events_out[ch];
+                for raw_midi in raw_midi_events {
+                    let raw_raw_midi = RawMidi {
+                        time: raw_midi.0,
+                        bytes: raw_midi.1.as_slice(),
+                    };
+                    writer.write(&raw_raw_midi).unwrap();
+                }
+            });
+
+            unsafe { TIME_IN_SAMPLES += 1; }
+        }
+        
         
         OUT_PORTS.lock().unwrap().iter_mut().enumerate().for_each(|(ch, port)| {
             let out_port_buf = port.as_mut_slice(ps);

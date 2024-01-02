@@ -23,7 +23,6 @@ pub fn get_csd_from_env() -> String {
 }
 
 pub fn parse_config(csd: String, params: &mut Vec<Param>) -> String {
-    // find index of <Config>
     let config_start = csd.find("<Config>").expect("\n<Config> block missing.\n");
     let config_end = csd.find("</Config>").expect("\n</Config> terminator missing\n");
 
@@ -263,6 +262,13 @@ pub fn init(csd: &str, ksmps: u64, param_update_hz: u32, config: &Config) {
     }
 }
 
+pub fn process_next_block(samples: &Vec<Vec<f64>>, params: &Vec<Param>) {
+    for i in 0..params.len() {
+        unsafe { CSOUND.as_mut().unwrap().set_control_channel(&format!("{}", params[i].name), params[i].value); }
+    }
+}
+
+
 pub fn process(time_in_samples: u64, params: &Vec<Param>, samples: &mut [f64; 32], done: &mut bool) {
     if *done {
         return;
@@ -273,12 +279,6 @@ pub fn process(time_in_samples: u64, params: &Vec<Param>, samples: &mut [f64; 32
             *done = CSOUND.as_ref().unwrap().perform_ksmps();
         }
 
-        if time_in_samples % PARAM_UPDATE_SAMPLES == 0 {
-            for i in 0..params.len() {
-                CSOUND.as_mut().unwrap().set_control_channel(&format!("{}", params[i].name), params[i].value);
-            }
-        }
-    
         let spout = CSOUND.as_ref().unwrap().get_output_buffer().unwrap();
 
         let pos_in_buffer_window = time_in_samples % 256;
