@@ -6,7 +6,7 @@ use core::panic;
 use da_interface::{CONFIG, Config, Param, ParamType, connect, keyboard_out, self_out, system_playback, self_midi_in, self_midi_out, reaper_midi_out, reaper_midi_in, system_capture, reaper_out, self_in, reaper_in};
 use regex::Regex;
 
-static mut CSOUND: Option<csound::Csound> = None;
+pub static mut CSOUND: Option<csound::Csound> = None;
 static mut KSMPS: u64 = 16;
 static mut IN_CH: u32 = 0;
 static mut OUT_CH: u32 = 1;
@@ -184,14 +184,17 @@ pub fn parse_config(csd: String, params: &mut Vec<Param>) -> String {
     
     for mr in config.midi_routing.unwrap_or(Vec::new()) {
         match mr.mode {
+            midi::Mode::Midi => {
+                unsafe { midi::MIDI_ROUTINGS[mr.channel as usize] = Some(midi::MidiRoutingAndModeData { mr, md: midi::ModeData::Midi }); }
+            },
             midi::Mode::Mono => {
-                unsafe { midi::MIDI_ROUTINGS.push(midi::MidiRoutingAndModeData { mr, md: midi::ModeData::Mono(None) }); }
+                unsafe { midi::MIDI_ROUTINGS[mr.channel as usize] = Some(midi::MidiRoutingAndModeData { mr, md: midi::ModeData::Mono(None) }); }
             },
             midi::Mode::Poly => {
-                unsafe { midi::MIDI_ROUTINGS.push(midi::MidiRoutingAndModeData { mr, md: midi::ModeData::Poly }); }
+                unsafe { midi::MIDI_ROUTINGS[mr.channel as usize] = Some(midi::MidiRoutingAndModeData { mr, md: midi::ModeData::Poly }); }
             },
             midi::Mode::PolyTrig => {
-                unsafe { midi::MIDI_ROUTINGS.push(midi::MidiRoutingAndModeData { mr, md: midi::ModeData::PolyTrig(0) }); }
+                unsafe { midi::MIDI_ROUTINGS[mr.channel as usize] = Some(midi::MidiRoutingAndModeData { mr, md: midi::ModeData::PolyTrig(0) }); }
             }
         }
     }

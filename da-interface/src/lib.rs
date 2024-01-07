@@ -107,41 +107,38 @@ pub fn keyboard_out() -> String {
 
 #[derive(Debug)]
 pub struct NoteOn {
-    pub port: u8,
-    pub channel: u8,
     pub note: u8,
     pub velocity: f64,
 }
 
 #[derive(Debug)]
 pub struct NoteOff {
-    pub port: u8,
-    pub channel: u8,
     pub note: u8,
     pub velocity: f64,
 }
 
 #[derive(Debug)]
 pub struct CC {
-    pub port: u8,
-    pub channel: u8,
     pub cc: u8,
     pub value: f64,
 }
 
 #[derive(Debug)]
 pub struct PB {
-    pub port: u8,
-    pub channel: u8,
     pub value: f64,
 }
 
-#[derive(Debug)]
-pub enum Midi {
-    On(NoteOn),
-    Off(NoteOff),
+pub enum MsgType {
+    NoteOn(NoteOn),
+    NoteOff(NoteOff),
     CC(CC),
     PB(PB),
+}
+
+pub struct Midi {
+    pub port: u8,
+    pub channel: u8,
+    pub msg_type: MsgType
 }
 
 #[derive(Clone)]

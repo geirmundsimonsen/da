@@ -1,7 +1,7 @@
 use std::{sync::Mutex, ffi::c_void, f32::NAN, collections::HashMap, borrow::BorrowMut};
 use jack::{Client, ClientOptions, MidiIn, AudioOut, Port, AudioIn, AsyncClient, ProcessScope, Control, ProcessHandler, RawMidi, MidiOut};
 use libloading::{Library, Symbol};
-use da_interface::{Config, Midi, NoteOn, NoteOff, CC, PB, Param};
+use da_interface::{Config, Midi, NoteOn, NoteOff, CC, PB, Param, MsgType};
 
 use crate::{constants::MAX_JACK_FRAMES, param::{self}};
 
@@ -66,32 +66,40 @@ impl ProcessHandler for ConcreteProcessHandler {
             let raw_midi_events: Vec<RawMidi> = port.iter(ps).collect();
             for raw_midi in raw_midi_events {
                 let midi_event = if raw_midi.bytes[0] >= 0x90 && raw_midi.bytes[0] <= 0x9F {
-                    Some(Midi::On(NoteOn {
+                    Some(Midi {
                         port: port_no,
                         channel: raw_midi.bytes[0] & 0x0F,
-                        note: raw_midi.bytes[1],
-                        velocity: raw_midi.bytes[2] as f64 / 127.0,
-                    }))
+                        msg_type: MsgType::NoteOn(NoteOn {
+                            note: raw_midi.bytes[1],
+                            velocity: raw_midi.bytes[2] as f64 / 127.0,
+                        }),
+                    })
                 } else if raw_midi.bytes[0] >= 0x80 && raw_midi.bytes[0] <= 0x8F {
-                    Some(Midi::Off(NoteOff {
+                    Some(Midi {
                         port: port_no,
                         channel: raw_midi.bytes[0] & 0x0F,
-                        note: raw_midi.bytes[1],
-                        velocity: raw_midi.bytes[2] as f64 / 127.0,
-                    }))
+                        msg_type: MsgType::NoteOff(NoteOff {
+                            note: raw_midi.bytes[1],
+                            velocity: raw_midi.bytes[2] as f64 / 127.0,
+                        }),
+                    })
                 } else if raw_midi.bytes[0] >= 0xB0 && raw_midi.bytes[0] <= 0xBF {
-                    Some(Midi::CC(CC {
+                    Some(Midi {
                         port: port_no,
                         channel: raw_midi.bytes[0] & 0x0F,
-                        cc: raw_midi.bytes[1],
-                        value: raw_midi.bytes[2] as f64 / 127.0,
-                    }))
+                        msg_type: MsgType::CC(CC {
+                            cc: raw_midi.bytes[1],
+                            value: raw_midi.bytes[2] as f64 / 127.0,
+                        }),
+                    })
                 } else if raw_midi.bytes[0] >= 0xE0 && raw_midi.bytes[0] <= 0xEF {
-                    Some(Midi::PB(PB {
+                    Some(Midi {
                         port: port_no,
                         channel: raw_midi.bytes[0] & 0x0F,
-                        value: (raw_midi.bytes[2] as u16 * 128 + raw_midi.bytes[1] as u16) as f64 / 16383.0,
-                    }))
+                        msg_type: MsgType::PB(PB {
+                            value: (raw_midi.bytes[2] as u16 * 128 + raw_midi.bytes[1] as u16) as f64 / 16383.0,
+                        }),
+                    })
                 } else {
                     None
                 };
@@ -137,30 +145,30 @@ impl ProcessHandler for ConcreteProcessHandler {
 
             if empty_midi_events_out.len() > 0 {
                 for midi in empty_midi_events_out.iter() {
-                    match midi {
-                        Midi::On(note_on) => {
-                            raw_midi_events_out[note_on.port as usize].push((
+                    match &midi.msg_type {
+                        MsgType::NoteOn(note_on) => {
+                            raw_midi_events_out[midi.port as usize].push((
                                 i / self.upsampling_factor as u32,
-                                vec![0x90 | note_on.channel, note_on.note, (note_on.velocity * 127.0) as u8],
+                                vec![0x90 | midi.channel, note_on.note, (note_on.velocity * 127.0) as u8],
                             ));
                         },
-                        Midi::Off(note_off) => {
-                            raw_midi_events_out[note_off.port as usize].push((
+                        MsgType::NoteOff(note_off) => {
+                            raw_midi_events_out[midi.port as usize].push((
                                 i / self.upsampling_factor as u32,
-                                vec![0x80 | note_off.channel, note_off.note, (note_off.velocity * 127.0) as u8],
+                                vec![0x80 | midi.channel, note_off.note, (note_off.velocity * 127.0) as u8],
                             ));
                         },
-                        Midi::CC(cc) => {
-                            raw_midi_events_out[cc.port as usize].push((
+                        MsgType::CC(cc) => {
+                            raw_midi_events_out[midi.port as usize].push((
                                 i / self.upsampling_factor as u32,
-                                vec![0xB0 | cc.channel, cc.cc, (cc.value * 127.0) as u8],
+                                vec![0xB0 | midi.channel, cc.cc, (cc.value * 127.0) as u8],
                             ));
                         },
                         
-                        Midi::PB(pb) => {
-                            raw_midi_events_out[pb.port as usize].push((
+                        MsgType::PB(pb) => {
+                            raw_midi_events_out[midi.port as usize].push((
                                 i / self.upsampling_factor as u32,
-                                vec![0xE0 | pb.channel, (pb.value * 16383.0 / 128.0) as u8, (pb.value * 16383.0 % 128.0) as u8],
+                                vec![0xE0 | midi.channel, (pb.value * 16383.0 / 128.0) as u8, (pb.value * 16383.0 % 128.0) as u8],
                             ));
                         },
                     }
